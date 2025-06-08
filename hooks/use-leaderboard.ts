@@ -20,6 +20,8 @@ export const useLeaderboard = () => {
   const [players, setPlayers] = useState<Player[]>([])
   const [playthroughs, setPlaythroughs] = useState<Playthrough[]>([])
   const [loading, setLoading] = useState(false)
+  const [gameLoading, setGameLoading] = useState(false)
+  const [playthroughLoading, setPlaythroughLoading] = useState(false)
 
   // Load initial data
   useEffect(() => {
@@ -50,7 +52,9 @@ export const useLeaderboard = () => {
   const loadGroups = async () => {
     setLoading(true)
     try {
+      console.time("Load Groups")
       const response = await groupApi.getGroups()
+      console.timeEnd("Load Groups")
       if (response.success && response.data) {
         setGroups(response.data)
       } else {
@@ -64,8 +68,11 @@ export const useLeaderboard = () => {
   }
 
   const loadGamesForGroup = async (groupId: string) => {
+    setGameLoading(true)
     try {
+      console.time("Load Games")
       const response = await gameApi.getGamesForGroup(groupId)
+      console.timeEnd("Load Games")
       if (response.success && response.data) {
         setGames(response.data)
       } else {
@@ -73,12 +80,16 @@ export const useLeaderboard = () => {
       }
     } catch (error) {
       console.error("Failed to load games:", error)
+    } finally {
+      setGameLoading(false)
     }
   }
 
   const loadPlayersForGroup = async (groupId: string) => {
     try {
+      console.time("Load Players")
       const response = await playerApi.getPlayersForGroup(groupId)
+      console.timeEnd("Load Players")
       if (response.success && response.data) {
         setPlayers(response.data)
       } else {
@@ -90,20 +101,28 @@ export const useLeaderboard = () => {
   }
 
   const loadPlaythroughsForGame = async (gameId: string) => {
+    setPlaythroughLoading(true)
     try {
+      console.time("Load Playthroughs")
       const response = await playthroughApi.getPlaythroughsForGame(gameId)
+      console.timeEnd("Load Playthroughs")
       if (response.success && response.data) {
+        console.log("Loaded playthroughs:", response.data) // Debug log
         setPlaythroughs(response.data)
       } else {
         console.error("Failed to load playthroughs:", response.error)
       }
     } catch (error) {
       console.error("Failed to load playthroughs:", error)
+    } finally {
+      setPlaythroughLoading(false)
     }
   }
 
   const createGroup = async (name: string, description?: string): Promise<Group> => {
+    console.time("Create Group")
     const response = await groupApi.createGroup(name, description)
+    console.timeEnd("Create Group")
     if (!response.success || !response.data) {
       throw new Error(response.error || "Failed to create group")
     }
@@ -113,7 +132,9 @@ export const useLeaderboard = () => {
   }
 
   const joinGroup = async (code: string): Promise<Group> => {
+    console.time("Join Group")
     const response = await groupApi.joinGroup(code)
+    console.timeEnd("Join Group")
     if (!response.success || !response.data) {
       throw new Error(response.error || "Failed to join group")
     }
@@ -123,7 +144,9 @@ export const useLeaderboard = () => {
   }
 
   const createGame = async (groupId: string, name: string): Promise<Game> => {
+    console.time("Create Game")
     const response = await gameApi.createGame(groupId, name)
+    console.timeEnd("Create Game")
     if (!response.success || !response.data) {
       throw new Error(response.error || "Failed to create game")
     }
@@ -136,16 +159,44 @@ export const useLeaderboard = () => {
     gameId: string,
     results: { playerName: string; rank: number }[],
   ): Promise<Playthrough> => {
+    console.time("Add Playthrough")
+    console.log("Adding playthrough for game:", gameId, "with results:", results)
+
     const response = await playthroughApi.createPlaythrough(gameId, results)
+    console.timeEnd("Add Playthrough")
+
     if (!response.success || !response.data) {
       throw new Error(response.error || "Failed to create playthrough")
     }
 
-    await loadPlaythroughsForGame(gameId) // Refresh playthroughs
-    if (selectedGroupId) {
-      await loadPlayersForGroup(selectedGroupId) // Refresh players in case new ones were added
-    }
+    console.log("Playthrough created successfully:", response.data)
+
+    // Refresh both playthroughs and players
+    await Promise.all([
+      loadPlaythroughsForGame(gameId),
+      selectedGroupId ? loadPlayersForGroup(selectedGroupId) : Promise.resolve(),
+    ])
+
     return response.data
+  }
+
+  const deletePlaythrough = async (gameId: string, playthroughId: string): Promise<boolean> => {
+    try {
+      console.time("Delete Playthrough")
+      const response = await playthroughApi.deletePlaythrough(gameId, playthroughId)
+      console.timeEnd("Delete Playthrough")
+
+      if (!response.success) {
+        throw new Error(response.error || "Failed to delete playthrough")
+      }
+
+      // Update local state to remove the deleted playthrough
+      setPlaythroughs((prev) => prev.filter((p) => p.id !== playthroughId))
+      return true
+    } catch (error) {
+      console.error("Failed to delete playthrough:", error)
+      return false
+    }
   }
 
   const getLeaderboardForGame = useCallback(
@@ -156,6 +207,8 @@ export const useLeaderboard = () => {
       if (!game) return null
 
       const gamePlaythroughs = playthroughs.filter((p) => p.game_id === gameId)
+      console.log("Game playthroughs for leaderboard:", gamePlaythroughs) // Debug log
+
       const playerStats: Record<
         string,
         {
@@ -247,6 +300,9 @@ export const useLeaderboard = () => {
     selectedGroupId,
     selectedGameId,
     loading,
+    gameLoading,
+    playthroughLoading,
+    playthroughs, // Export playthroughs directly
 
     // Computed
     currentLeaderboard,
@@ -260,5 +316,6 @@ export const useLeaderboard = () => {
     addPlaythrough,
     setSelectedGroupId,
     setSelectedGameId,
+    deletePlaythrough,
   }
 }

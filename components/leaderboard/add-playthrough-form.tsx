@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { PlusCircle, Trash2, Users, UserPlus } from "lucide-react"
+import { PlusCircle, Trash2, Users, UserPlus, Loader2, CheckCircle } from "lucide-react"
 import type { Player } from "@/types/leaderboard"
 import { getOrdinalSuffix } from "@/utils/leaderboard-utils"
 
@@ -17,7 +17,7 @@ interface AddPlaythroughFormProps {
   gameId: string
   gameName: string
   existingPlayers: Player[]
-  onSubmit: (results: { playerName: string; rank: number }[]) => void
+  onSubmit: (results: { playerName: string; rank: number }[]) => Promise<void>
 }
 
 interface PlayerRankInput {
@@ -34,6 +34,8 @@ export const AddPlaythroughForm = ({ gameId, gameName, existingPlayers, onSubmit
   ])
   const [error, setError] = useState<string | null>(null)
   const [showPlayerSuggestions, setShowPlayerSuggestions] = useState<{ [key: string]: boolean }>({})
+  const [submitting, setSubmitting] = useState(false)
+  const [submitSuccess, setSubmitSuccess] = useState(false)
 
   const handlePlayerRankChange = (index: number, field: "playerName" | "rank", value: string) => {
     const updatedRanks = [...playerRanks]
@@ -46,6 +48,7 @@ export const AddPlaythroughForm = ({ gameId, gameName, existingPlayers, onSubmit
           : updatedRanks[index].isNewPlayer,
     }
     setPlayerRanks(updatedRanks)
+    setError(null) // Clear error when user makes changes
   }
 
   const selectExistingPlayer = (index: number, player: Player) => {
@@ -86,9 +89,10 @@ export const AddPlaythroughForm = ({ gameId, gameName, existingPlayers, onSubmit
     setError(null)
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+    setSubmitSuccess(false)
 
     const results: { playerName: string; rank: number }[] = []
     const playerNames = new Set<string>()
@@ -132,11 +136,26 @@ export const AddPlaythroughForm = ({ gameId, gameName, existingPlayers, onSubmit
       }
     }
 
-    onSubmit(results)
-    setPlayerRanks([
-      { id: crypto.randomUUID(), playerName: "", rank: "1", isNewPlayer: true },
-      { id: crypto.randomUUID(), playerName: "", rank: "2", isNewPlayer: true },
-    ])
+    setSubmitting(true)
+    try {
+      console.log("Submitting playthrough with results:", results)
+      await onSubmit(results)
+
+      // Show success state briefly
+      setSubmitSuccess(true)
+      setTimeout(() => setSubmitSuccess(false), 2000)
+
+      // Reset form
+      setPlayerRanks([
+        { id: crypto.randomUUID(), playerName: "", rank: "1", isNewPlayer: true },
+        { id: crypto.randomUUID(), playerName: "", rank: "2", isNewPlayer: true },
+      ])
+    } catch (err: any) {
+      console.error("Error submitting playthrough:", err)
+      setError(err.message || "Failed to submit playthrough. Please try again.")
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const getRankOptions = () => {
@@ -192,6 +211,7 @@ export const AddPlaythroughForm = ({ gameId, gameName, existingPlayers, onSubmit
                       }
                       placeholder="e.g., Alice"
                       required
+                      disabled={submitting}
                     />
                   </div>
                   <div className="grid gap-1.5 w-32">
@@ -199,6 +219,7 @@ export const AddPlaythroughForm = ({ gameId, gameName, existingPlayers, onSubmit
                     <Select
                       value={playerRank.rank}
                       onValueChange={(value) => handlePlayerRankChange(index, "rank", value)}
+                      disabled={submitting}
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -217,7 +238,7 @@ export const AddPlaythroughForm = ({ gameId, gameName, existingPlayers, onSubmit
                     variant="ghost"
                     size="sm"
                     onClick={() => removePlayerField(index)}
-                    disabled={playerRanks.length <= 1}
+                    disabled={playerRanks.length <= 1 || submitting}
                     aria-label="Remove player"
                   >
                     <Trash2 className="h-4 w-4 text-red-500" />
@@ -249,12 +270,38 @@ export const AddPlaythroughForm = ({ gameId, gameName, existingPlayers, onSubmit
           })}
 
           <div className="flex justify-between items-center">
-            <Button type="button" variant="outline" size="sm" onClick={addPlayerField}>
+            <Button type="button" variant="outline" size="sm" onClick={addPlayerField} disabled={submitting}>
               <PlusCircle className="mr-2 h-4 w-4" /> Add Player
             </Button>
-            <Button type="submit">Submit Playthrough</Button>
+            <Button type="submit" disabled={submitting || submitSuccess}>
+              {submitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Recording Playthrough...
+                </>
+              ) : submitSuccess ? (
+                <>
+                  <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
+                  Success!
+                </>
+              ) : (
+                "Submit Playthrough"
+              )}
+            </Button>
           </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          )}
+          {submitting && (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <p className="text-sm text-blue-600 flex items-center">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Creating playthrough and updating leaderboard...
+              </p>
+            </div>
+          )}
         </form>
       </CardContent>
     </Card>

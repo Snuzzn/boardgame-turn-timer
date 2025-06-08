@@ -6,6 +6,7 @@ export async function GET(request: NextRequest, { params }: { params: { gameId: 
     const userId = getUserId(request)
     const { gameId } = params
 
+    console.time("Verify Game Access")
     // Get game and verify access
     const [game] = await sql`
       SELECT g.id, g.group_id
@@ -14,12 +15,14 @@ export async function GET(request: NextRequest, { params }: { params: { gameId: 
       WHERE g.id = ${gameId} AND ga.user_id = ${userId}
       LIMIT 1
     `
+    console.timeEnd("Verify Game Access")
 
     if (!game) {
       return NextResponse.json({ success: false, error: "Game not found or access denied" }, { status: 404 })
     }
 
-    // Get all playthroughs for this game with results
+    console.time("Fetch Playthroughs")
+    // Get all playthroughs for this game with results - optimized query
     const playthroughs = await sql`
       SELECT 
         p.id,
@@ -27,12 +30,15 @@ export async function GET(request: NextRequest, { params }: { params: { gameId: 
         p.group_id,
         p.timestamp,
         p.recorded_by,
-        json_agg(
-          json_build_object(
-            'playerId', pr.player_id,
-            'playerName', pr.player_name,
-            'rank', pr.rank
-          ) ORDER BY pr.rank
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'playerId', pr.player_id,
+              'playerName', pr.player_name,
+              'rank', pr.rank
+            ) ORDER BY pr.rank
+          ) FILTER (WHERE pr.id IS NOT NULL),
+          '[]'::json
         ) as results
       FROM playthroughs p
       LEFT JOIN playthrough_results pr ON p.id = pr.playthrough_id
@@ -40,6 +46,9 @@ export async function GET(request: NextRequest, { params }: { params: { gameId: 
       GROUP BY p.id, p.game_id, p.group_id, p.timestamp, p.recorded_by
       ORDER BY p.timestamp DESC
     `
+    console.timeEnd("Fetch Playthroughs")
+
+    console.log(`Found ${playthroughs.length} playthroughs for game ${gameId}`)
 
     return NextResponse.json({ success: true, data: playthroughs })
   } catch (error) {
@@ -53,6 +62,9 @@ export async function POST(request: NextRequest, { params }: { params: { gameId:
     const userId = getUserId(request)
     const { gameId } = params
     const { results } = await request.json()
+
+    console.time("Create Playthrough")
+    console.log("Creating playthrough for game:", gameId, "with results:", results)
 
     if (!results || !Array.isArray(results) || results.length === 0) {
       return NextResponse.json({ success: false, error: "Results are required" }, { status: 400 })
@@ -88,12 +100,14 @@ export async function POST(request: NextRequest, { params }: { params: { gameId:
       }
     }
 
-    // Start transaction
+    // Start transaction - create playthrough
     const [playthrough] = await sql`
       INSERT INTO playthroughs (game_id, group_id, recorded_by)
       VALUES (${gameId}, ${game.group_id}, ${userId})
       RETURNING id, game_id, group_id, timestamp, recorded_by
     `
+
+    console.log("Created playthrough:", playthrough.id)
 
     // Process each result
     const playthroughResults = []
@@ -108,6 +122,7 @@ export async function POST(request: NextRequest, { params }: { params: { gameId:
       `
 
       if (!player) {
+        console.log("Creating new player:", playerName.trim())
         ;[player] = await sql`
           INSERT INTO players (name, group_id)
           VALUES (${playerName.trim()}, ${game.group_id})
@@ -133,6 +148,9 @@ export async function POST(request: NextRequest, { params }: { params: { gameId:
       ...playthrough,
       results: playthroughResults,
     }
+
+    console.timeEnd("Create Playthrough")
+    console.log("Playthrough created successfully:", response)
 
     return NextResponse.json({ success: true, data: response })
   } catch (error) {

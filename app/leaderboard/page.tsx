@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Loader2 } from "lucide-react"
 import { Toaster, toast } from "sonner"
 
 export default function LeaderboardPage() {
@@ -21,6 +21,9 @@ export default function LeaderboardPage() {
     selectedGroupId,
     selectedGameId,
     loading,
+    gameLoading,
+    playthroughLoading,
+    playthroughs, // Now properly imported
     currentLeaderboard,
     currentGroupOverview,
     currentGroupPlayers,
@@ -28,12 +31,14 @@ export default function LeaderboardPage() {
     joinGroup,
     createGame,
     addPlaythrough,
+    deletePlaythrough,
     setSelectedGroupId,
     setSelectedGameId,
   } = useLeaderboard()
 
   const [newGameName, setNewGameName] = useState("")
   const [showCreateGameDialog, setShowCreateGameDialog] = useState(false)
+  const [gameCreateLoading, setGameCreateLoading] = useState(false)
 
   const handleCreateGroup = async (name: string, description?: string) => {
     try {
@@ -49,8 +54,11 @@ export default function LeaderboardPage() {
   const handleJoinGroup = async (code: string) => {
     try {
       const group = await joinGroup(code)
-      toast.success(`Successfully joined "${group.name}"!`)
-      return group
+      if (group) {
+        toast.success(`Successfully joined "${group.name}"!`)
+        return group
+      }
+      return undefined
     } catch (e: any) {
       toast.error(e.message || "Error joining group.")
       return undefined
@@ -61,6 +69,7 @@ export default function LeaderboardPage() {
     if (e) e.preventDefault()
     if (!selectedGroupId || !newGameName.trim()) return
 
+    setGameCreateLoading(true)
     try {
       const newGame = await createGame(selectedGroupId, newGameName.trim())
       setNewGameName("")
@@ -69,21 +78,46 @@ export default function LeaderboardPage() {
       toast.success(`Game "${newGame.name}" added to the group!`)
     } catch (e: any) {
       toast.error(e.message || "Error creating game.")
+    } finally {
+      setGameCreateLoading(false)
     }
   }
 
   const handleAddPlaythrough = async (gameId: string, results: any[]) => {
     try {
+      console.log("Page: Adding playthrough for game:", gameId)
       await addPlaythrough(gameId, results)
-      toast.success(`Playthrough recorded!`)
+      toast.success(`Playthrough recorded successfully!`)
     } catch (e: any) {
+      console.error("Page: Error adding playthrough:", e)
       toast.error(e.message || "Error recording playthrough.")
+      throw e // Re-throw to let the form handle it
+    }
+  }
+
+  const handleDeletePlaythrough = async (gameId: string, playthroughId: string) => {
+    try {
+      const success = await deletePlaythrough(gameId, playthroughId)
+      if (success) {
+        toast.success("Playthrough deleted successfully")
+      } else {
+        toast.error("Failed to delete playthrough")
+      }
+      return success
+    } catch (e: any) {
+      toast.error(e.message || "Error deleting playthrough")
+      return false
     }
   }
 
   const handleBackToGroup = () => {
     setSelectedGameId(null)
   }
+
+  // Filter playthroughs for the current game
+  const currentGamePlaythroughs = selectedGameId ? playthroughs.filter((p) => p.game_id === selectedGameId) : []
+
+  console.log("Current game playthroughs:", currentGamePlaythroughs) // Debug log
 
   // Show game leaderboard if a game is selected
   if (selectedGameId && currentLeaderboard) {
@@ -101,7 +135,11 @@ export default function LeaderboardPage() {
         <LeaderboardView
           leaderboardData={currentLeaderboard}
           existingPlayers={currentGroupPlayers}
+          playthroughs={currentGamePlaythroughs}
           onAddPlaythrough={handleAddPlaythrough}
+          onDeletePlaythrough={handleDeletePlaythrough}
+          loading={loading}
+          playthroughLoading={playthroughLoading}
         />
       </div>
     )
@@ -124,6 +162,7 @@ export default function LeaderboardPage() {
           overview={currentGroupOverview}
           onSelectGame={setSelectedGameId}
           onCreateGame={() => setShowCreateGameDialog(true)}
+          loading={gameLoading}
         />
 
         {/* Create Game Dialog */}
@@ -140,14 +179,27 @@ export default function LeaderboardPage() {
                   value={newGameName}
                   onChange={(e) => setNewGameName(e.target.value)}
                   placeholder="e.g., Wingspan, Azul, Ticket to Ride"
+                  disabled={gameCreateLoading}
                 />
               </div>
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setShowCreateGameDialog(false)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowCreateGameDialog(false)}
+                  disabled={gameCreateLoading}
+                >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={!newGameName.trim()}>
-                  Add Game
+                <Button type="submit" disabled={!newGameName.trim() || gameCreateLoading}>
+                  {gameCreateLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    "Add Game"
+                  )}
                 </Button>
               </div>
             </form>

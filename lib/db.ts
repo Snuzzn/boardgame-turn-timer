@@ -4,10 +4,13 @@ if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL environment variable is required")
 }
 
-// Configure Neon to suppress browser warnings for development
+// Configure Neon with connection pooling and performance optimizations
 export const sql = neon(process.env.DATABASE_URL, {
-  // Suppress the browser warning for development
-  // Remove this in production or when you implement proper server-side only access
+  // Enable connection pooling for better performance
+  pooling: true,
+  // Set reasonable timeouts
+  connectionTimeoutMillis: 5000,
+  queryTimeoutMillis: 10000,
 })
 
 // Helper function to generate unique group codes
@@ -22,9 +25,9 @@ export async function generateUniqueGroupCode(): Promise<string> {
       code += chars.charAt(Math.floor(Math.random() * chars.length))
     }
 
-    // Check if code already exists
+    // Check if code already exists with optimized query
     const existing = await sql`
-      SELECT id FROM groups WHERE code = ${code} LIMIT 1
+      SELECT 1 FROM groups WHERE code = ${code} LIMIT 1
     `
 
     if (existing.length === 0) {

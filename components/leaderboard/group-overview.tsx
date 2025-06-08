@@ -4,15 +4,20 @@ import type { GroupOverview } from "@/types/leaderboard"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Users, Gamepad2, Trophy, Plus, Calendar, BarChart3 } from "lucide-react"
+import { Users, Gamepad2, Trophy, Plus, Calendar, BarChart3, Loader2 } from "lucide-react"
+import { Spinner } from "@/components/ui/spinner"
+import { useState } from "react"
 
 interface GroupOverviewProps {
   overview: GroupOverview | null
   onSelectGame: (gameId: string) => void
   onCreateGame: () => void
+  loading?: boolean
 }
 
-const GroupOverviewComponent = ({ overview, onSelectGame, onCreateGame }: GroupOverviewProps) => {
+const GroupOverviewComponent = ({ overview, onSelectGame, onCreateGame, loading = false }: GroupOverviewProps) => {
+  const [loadingGameId, setLoadingGameId] = useState<string | null>(null)
+
   if (!overview) {
     return (
       <div className="text-center py-10">
@@ -23,6 +28,24 @@ const GroupOverviewComponent = ({ overview, onSelectGame, onCreateGame }: GroupO
   }
 
   const { group, games, totalPlayers, totalPlaythroughs } = overview
+
+  const handleGameSelect = async (gameId: string) => {
+    setLoadingGameId(gameId)
+    // Add a small delay to show the loading state
+    setTimeout(() => {
+      onSelectGame(gameId)
+      setLoadingGameId(null)
+    }, 100)
+  }
+
+  if (loading) {
+    return (
+      <div className="text-center py-16">
+        <Spinner size="lg" className="mx-auto mb-4" />
+        <p className="text-muted-foreground">Loading group overview...</p>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -64,13 +87,17 @@ const GroupOverviewComponent = ({ overview, onSelectGame, onCreateGame }: GroupO
             {games.map((game) => (
               <Card
                 key={game.id}
-                className="cursor-pointer hover:shadow-md transition-shadow"
-                onClick={() => onSelectGame(game.id)}
+                className="cursor-pointer hover:shadow-md transition-shadow relative"
+                onClick={() => handleGameSelect(game.id)}
               >
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center justify-between">
                     <span>{game.name}</span>
-                    <BarChart3 className="w-4 h-4 text-muted-foreground" />
+                    {loadingGameId === game.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                    ) : (
+                      <BarChart3 className="w-4 h-4 text-muted-foreground" />
+                    )}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -78,9 +105,14 @@ const GroupOverviewComponent = ({ overview, onSelectGame, onCreateGame }: GroupO
                     Added {new Date(game.createdAt).toLocaleDateString()}
                   </div>
                   <Badge variant="outline" className="mt-2">
-                    View Leaderboard
+                    {loadingGameId === game.id ? "Loading..." : "View Leaderboard"}
                   </Badge>
                 </CardContent>
+                {loadingGameId === game.id && (
+                  <div className="absolute inset-0 bg-white/50 flex items-center justify-center rounded-lg">
+                    <Spinner size="md" />
+                  </div>
+                )}
               </Card>
             ))}
           </div>

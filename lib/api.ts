@@ -145,4 +145,18 @@ export const playthroughApi = {
       return { success: false, error: "Network error" }
     }
   },
+
+  async deletePlaythrough(gameId: string, playthroughId: string): Promise<ApiResponse<void>> {
+    try {
+      const response = await fetch(`${API_BASE}/games/${gameId}/playthroughs/${playthroughId}`, {
+        method: "DELETE",
+      })
+
+      const data = await response.json()
+      return data
+    } catch (error) {
+      console.error("API Error:", error)
+      return { success: false, error: "Network error" }
+    }
+  },
 }

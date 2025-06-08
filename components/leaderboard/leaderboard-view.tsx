@@ -3,15 +3,42 @@
 import type { GameLeaderboard } from "@/types/leaderboard"
 import { AddPlaythroughForm } from "./add-playthrough-form"
 import { PlayerRankingCard } from "./player-ranking-card"
-import { BarChart3, Trophy, Lock, Users } from "lucide-react"
+import { PlaythroughHistory } from "./playthrough-history"
+import { BarChart3, Trophy, Lock, Users, History } from "lucide-react"
+import { Spinner } from "@/components/ui/spinner"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useState } from "react"
 
 interface LeaderboardViewProps {
   leaderboardData: GameLeaderboard | null
   existingPlayers: any[]
+  playthroughs: any[]
   onAddPlaythrough: (gameId: string, results: any[]) => void
+  onDeletePlaythrough: (gameId: string, playthroughId: string) => Promise<boolean>
+  loading?: boolean
+  playthroughLoading?: boolean
 }
 
-export const LeaderboardView = ({ leaderboardData, existingPlayers, onAddPlaythrough }: LeaderboardViewProps) => {
+export const LeaderboardView = ({
+  leaderboardData,
+  existingPlayers,
+  playthroughs,
+  onAddPlaythrough,
+  onDeletePlaythrough,
+  loading = false,
+  playthroughLoading = false,
+}: LeaderboardViewProps) => {
+  const [activeTab, setActiveTab] = useState<string>("rankings")
+
+  if (loading) {
+    return (
+      <div className="text-center py-16">
+        <Spinner size="lg" className="mx-auto mb-4" />
+        <p className="text-muted-foreground">Loading leaderboard data...</p>
+      </div>
+    )
+  }
+
   if (!leaderboardData) {
     return (
       <div className="text-center py-10">
@@ -27,8 +54,9 @@ export const LeaderboardView = ({ leaderboardData, existingPlayers, onAddPlaythr
     onAddPlaythrough(game.id, results)
   }
 
-  // Get the group information from the game data
-  const groupCode = game.group_id ? "------" : "------" // We don't have direct access to group code here
+  const handleDeletePlaythrough = async (playthroughId: string) => {
+    return await onDeletePlaythrough(game.id, playthroughId)
+  }
 
   return (
     <div className="space-y-8">
@@ -54,32 +82,56 @@ export const LeaderboardView = ({ leaderboardData, existingPlayers, onAddPlaythr
         </div>
       </header>
 
-      <div className="grid md:grid-cols-2 gap-8 items-start">
-        <section>
-          <h2 className="text-xl font-semibold mb-4 flex items-center">
-            <BarChart3 className="mr-2 h-5 w-5 text-sky-600" />
-            Player Rankings
-          </h2>
-          {rankings.length > 0 ? (
-            <div className="space-y-4">
-              {rankings.map((playerRanking) => (
-                <PlayerRankingCard key={playerRanking.playerId} playerRanking={playerRanking} />
-              ))}
-            </div>
-          ) : (
-            <p className="text-muted-foreground">No playthroughs recorded for this game yet. Add one below!</p>
-          )}
-        </section>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid grid-cols-2 w-full max-w-md mx-auto mb-6">
+          <TabsTrigger value="rankings" className="flex items-center">
+            <BarChart3 className="w-4 h-4 mr-2" />
+            Rankings
+          </TabsTrigger>
+          <TabsTrigger value="history" className="flex items-center">
+            <History className="w-4 h-4 mr-2" />
+            History
+          </TabsTrigger>
+        </TabsList>
 
-        <section className="sticky top-4">
-          <AddPlaythroughForm
+        <TabsContent value="rankings" className="space-y-8">
+          <div className="grid md:grid-cols-2 gap-8 items-start">
+            <section>
+              <h2 className="text-xl font-semibold mb-4 flex items-center">
+                <BarChart3 className="mr-2 h-5 w-5 text-sky-600" />
+                Player Rankings
+              </h2>
+              {rankings.length > 0 ? (
+                <div className="space-y-4">
+                  {rankings.map((playerRanking) => (
+                    <PlayerRankingCard key={playerRanking.playerId} playerRanking={playerRanking} />
+                  ))}
+                </div>
+              ) : (
+                <p className="text-muted-foreground">No playthroughs recorded for this game yet. Add one below!</p>
+              )}
+            </section>
+
+            <section className="sticky top-4">
+              <AddPlaythroughForm
+                gameId={game.id}
+                gameName={game.name}
+                existingPlayers={existingPlayers}
+                onSubmit={handlePlaythroughSubmit}
+              />
+            </section>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="history">
+          <PlaythroughHistory
+            playthroughs={playthroughs}
             gameId={game.id}
-            gameName={game.name}
-            existingPlayers={existingPlayers}
-            onSubmit={handlePlaythroughSubmit}
+            onDeletePlaythrough={handleDeletePlaythrough}
+            loading={playthroughLoading}
           />
-        </section>
-      </div>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

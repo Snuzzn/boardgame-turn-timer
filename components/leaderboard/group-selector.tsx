@@ -11,7 +11,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Users, PlusSquare, Key, Copy, Check, Calendar } from "lucide-react"
+import { Users, PlusSquare, Key, Copy, Check, Calendar, Loader2 } from "lucide-react"
+import { Spinner } from "@/components/ui/spinner"
 import { formatGroupCode } from "@/utils/group-code-utils"
 import { toast } from "sonner"
 
@@ -19,8 +20,8 @@ interface GroupSelectorProps {
   groups: Group[]
   selectedGroupId: string | null
   onSelectGroup: (groupId: string) => void
-  onCreateGroup: (name: string, description?: string) => Group | undefined
-  onJoinGroup: (code: string) => Group | undefined
+  onCreateGroup: (name: string, description?: string) => Promise<Group | undefined>
+  onJoinGroup: (code: string) => Promise<Group | undefined>
   loading?: boolean
 }
 
@@ -37,43 +38,49 @@ export const GroupSelector = ({
   const [groupCode, setGroupCode] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [copiedGroupId, setCopiedGroupId] = useState<string | null>(null)
+  const [createLoading, setCreateLoading] = useState(false)
+  const [joinLoading, setJoinLoading] = useState(false)
 
-  const handleCreateGroup = (e: React.FormEvent) => {
+  const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
     if (!newGroupName.trim()) {
       setError("Group name cannot be empty.")
       return
     }
+
+    setCreateLoading(true)
     try {
-      const newGroup = onCreateGroup(newGroupName.trim(), newGroupDescription.trim() || undefined)
+      const newGroup = await onCreateGroup(newGroupName.trim(), newGroupDescription.trim() || undefined)
       if (newGroup) {
-        onSelectGroup(newGroup.id)
         setNewGroupName("")
         setNewGroupDescription("")
-        toast.success(`Group "${newGroup.name}" created! Share code: ${formatGroupCode(newGroup.code)}`)
       }
     } catch (err: any) {
       setError(err.message || "Failed to create group.")
+    } finally {
+      setCreateLoading(false)
     }
   }
 
-  const handleJoinGroup = (e: React.FormEvent) => {
+  const handleJoinGroup = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
     if (!groupCode.trim()) {
       setError("Group code cannot be empty.")
       return
     }
+
+    setJoinLoading(true)
     try {
-      const group = onJoinGroup(groupCode.trim())
+      const group = await onJoinGroup(groupCode.trim())
       if (group) {
-        onSelectGroup(group.id)
         setGroupCode("")
-        toast.success(`Joined group "${group.name}"!`)
       }
     } catch (err: any) {
       setError(err.message || "Failed to join group.")
+    } finally {
+      setJoinLoading(false)
     }
   }
 
@@ -112,8 +119,9 @@ export const GroupSelector = ({
             </CardHeader>
             <CardContent>
               {loading ? (
-                <div className="text-center py-4">
-                  <p className="text-muted-foreground">Loading groups...</p>
+                <div className="text-center py-8">
+                  <Spinner size="lg" className="mx-auto mb-4" />
+                  <p className="text-muted-foreground">Loading your groups...</p>
                 </div>
               ) : groups.length > 0 ? (
                 <div className="space-y-4">
@@ -148,7 +156,7 @@ export const GroupSelector = ({
                           <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                             <div className="flex items-center">
                               <Calendar className="w-3 h-3 mr-1" />
-                              Created {new Date(selectedGroup.createdAt).toLocaleDateString()}
+                              Created {new Date(selectedGroup.created_at).toLocaleDateString()}
                             </div>
                             <div>
                               Code:{" "}
@@ -201,6 +209,7 @@ export const GroupSelector = ({
                     value={newGroupName}
                     onChange={(e) => setNewGroupName(e.target.value)}
                     placeholder="e.g., Board Game Night Crew"
+                    disabled={createLoading}
                   />
                 </div>
                 <div className="grid gap-1.5">
@@ -211,10 +220,18 @@ export const GroupSelector = ({
                     onChange={(e) => setNewGroupDescription(e.target.value)}
                     placeholder="e.g., Weekly board game sessions with college friends"
                     rows={2}
+                    disabled={createLoading}
                   />
                 </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  Create Group
+                <Button type="submit" className="w-full" disabled={createLoading || !newGroupName.trim()}>
+                  {createLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating Group...
+                    </>
+                  ) : (
+                    "Create Group"
+                  )}
                 </Button>
                 {error && <p className="text-sm text-red-600 mt-1">{error}</p>}
               </form>
@@ -243,11 +260,19 @@ export const GroupSelector = ({
                     onChange={(e) => setGroupCode(e.target.value)}
                     placeholder="e.g., ABC-123 or ABC123"
                     className="font-mono"
+                    disabled={joinLoading}
                   />
                   <p className="text-xs text-muted-foreground">Format: ABC-123 (dashes are optional)</p>
                 </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  Join Group
+                <Button type="submit" className="w-full" disabled={joinLoading || !groupCode.trim()}>
+                  {joinLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Joining Group...
+                    </>
+                  ) : (
+                    "Join Group"
+                  )}
                 </Button>
                 {error && <p className="text-sm text-red-600 mt-1">{error}</p>}
               </form>

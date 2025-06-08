@@ -2,24 +2,24 @@ export interface Group {
   id: string
   name: string
   code: string // Unique access code for the group
-  createdAt: number
-  createdBy: string // User identifier
+  created_at: string // Change from number to string since it comes from database as ISO string
+  created_by: string // User identifier
   description?: string
 }
 
 export interface Game {
   id: string
   name: string
-  groupId: string // Games belong to groups
-  createdAt: number
-  createdBy: string
+  group_id: string // Games belong to groups
+  created_at: string // Change from number to string
+  created_by: string
 }
 
 export interface Player {
   id: string
   name: string
-  groupId: string // Players are group-specific, can play multiple games
-  createdAt: number
+  group_id: string // Players are group-specific, can play multiple games
+  created_at: string // Change from number to string
 }
 
 export interface PlaythroughPlayerResult {
@@ -30,11 +30,11 @@ export interface PlaythroughPlayerResult {
 
 export interface Playthrough {
   id: string
-  gameId: string
-  groupId: string
-  timestamp: number
+  game_id: string
+  group_id: string
+  timestamp: string // Change from number to string
   results: PlaythroughPlayerResult[]
-  recordedBy: string // User who recorded this playthrough
+  recorded_by: string // User who recorded this playthrough
 }
 
 // Derived data for displaying a player on the main leaderboard for a game

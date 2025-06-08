@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Users, Gamepad2, Trophy, Plus, Calendar, BarChart3, Loader2 } from "lucide-react"
 import { Spinner } from "@/components/ui/spinner"
 import { useState } from "react"
+import { formatGroupCode } from "@/utils/group-code-utils"
 
 interface GroupOverviewProps {
   overview: GroupOverview | null
@@ -51,7 +52,12 @@ const GroupOverviewComponent = ({ overview, onSelectGame, onCreateGame, loading 
     <div className="space-y-6">
       {/* Group Header */}
       <div className="text-center">
-        <h2 className="text-2xl font-bold">{group.name}</h2>
+        <div className="flex items-center justify-center gap-3 mb-2">
+          <h2 className="text-2xl font-bold">{group.name}</h2>
+          <Badge variant="outline" className="font-mono text-sm">
+            {formatGroupCode(group.code)}
+          </Badge>
+        </div>
         {group.description && <p className="text-muted-foreground mt-1">{group.description}</p>}
         <div className="flex items-center justify-center gap-6 mt-4">
           <div className="flex items-center text-sm text-muted-foreground">
@@ -64,7 +70,7 @@ const GroupOverviewComponent = ({ overview, onSelectGame, onCreateGame, loading 
           </div>
           <div className="flex items-center text-sm text-muted-foreground">
             <Calendar className="w-4 h-4 mr-1" />
-            Since {new Date(group.createdAt).toLocaleDateString()}
+            Since {new Date(group.created_at).toLocaleDateString()}
           </div>
         </div>
       </div>
@@ -102,7 +108,7 @@ const GroupOverviewComponent = ({ overview, onSelectGame, onCreateGame, loading 
                 </CardHeader>
                 <CardContent>
                   <div className="text-xs text-muted-foreground">
-                    Added {new Date(game.createdAt).toLocaleDateString()}
+                    Added {new Date(game.created_at).toLocaleDateString()}
                   </div>
                   <Badge variant="outline" className="mt-2">
                     {loadingGameId === game.id ? "Loading..." : "View Leaderboard"}

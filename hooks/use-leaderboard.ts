@@ -12,6 +12,7 @@ import type {
 } from "@/types/leaderboard"
 import { groupApi, gameApi, playerApi, playthroughApi } from "@/lib/api"
 import { groupStorage } from "@/lib/group-storage"
+import { track } from "@vercel/analytics/react"
 
 export const useLeaderboard = () => {
   const [groups, setGroups] = useState<Group[]>([])
@@ -23,6 +24,11 @@ export const useLeaderboard = () => {
   const [loading, setLoading] = useState(false)
   const [gameLoading, setGameLoading] = useState(false)
   const [playthroughLoading, setPlaythroughLoading] = useState(false)
+
+  // Track page visit on mount
+  useEffect(() => {
+    track("page_visited", { page: "leaderboard" })
+  }, [])
 
   // Load initial data
   useEffect(() => {
@@ -55,7 +61,6 @@ export const useLeaderboard = () => {
     try {
       console.time("Load Groups")
 
-      // Get allowed group IDs from localStorage
       const allowedGroupIds = groupStorage.getStoredGroupIds()
       console.log("Allowed group IDs from localStorage:", allowedGroupIds)
 
@@ -67,9 +72,14 @@ export const useLeaderboard = () => {
         setGroups(response.data)
       } else {
         console.error("Failed to load groups:", response.error)
+        track("error_occurred", { error_type: "load_groups_failed", error_message: response.error })
       }
     } catch (error) {
       console.error("Failed to load groups:", error)
+      track("error_occurred", {
+        error_type: "load_groups_failed",
+        error_message: error instanceof Error ? error.message : "Unknown error",
+      })
     } finally {
       setLoading(false)
     }
@@ -85,9 +95,14 @@ export const useLeaderboard = () => {
         setGames(response.data)
       } else {
         console.error("Failed to load games:", response.error)
+        track("error_occurred", { error_type: "load_groups_failed", error_message: response.error })
       }
     } catch (error) {
       console.error("Failed to load games:", error)
+      track("error_occurred", {
+        error_type: "load_groups_failed",
+        error_message: error instanceof Error ? error.message : "Unknown error",
+      })
     } finally {
       setGameLoading(false)
     }
@@ -102,9 +117,14 @@ export const useLeaderboard = () => {
         setPlayers(response.data)
       } else {
         console.error("Failed to load players:", response.error)
+        track("error_occurred", { error_type: "load_groups_failed", error_message: response.error })
       }
     } catch (error) {
       console.error("Failed to load players:", error)
+      track("error_occurred", {
+        error_type: "load_groups_failed",
+        error_message: error instanceof Error ? error.message : "Unknown error",
+      })
     }
   }
 
@@ -119,9 +139,14 @@ export const useLeaderboard = () => {
         setPlaythroughs(response.data)
       } else {
         console.error("Failed to load playthroughs:", response.error)
+        track("error_occurred", { error_type: "load_groups_failed", error_message: response.error })
       }
     } catch (error) {
       console.error("Failed to load playthroughs:", error)
+      track("error_occurred", {
+        error_type: "load_groups_failed",
+        error_message: error instanceof Error ? error.message : "Unknown error",
+      })
     } finally {
       setPlaythroughLoading(false)
     }
@@ -132,6 +157,7 @@ export const useLeaderboard = () => {
     const response = await groupApi.createGroup(name, description)
     console.timeEnd("Create Group")
     if (!response.success || !response.data) {
+      track("error_occurred", { error_type: "load_groups_failed", error_message: response.error })
       throw new Error(response.error || "Failed to create group")
     }
 
@@ -139,7 +165,10 @@ export const useLeaderboard = () => {
     groupStorage.storeGroupCode(response.data.id, response.data.code, response.data.name)
     console.log("Stored group code for created group:", response.data.id)
 
-    await loadGroups() // Refresh groups list
+    // Track group creation
+    track("group_created", { group_name_length: response.data.name.length })
+
+    await loadGroups()
     return response.data
   }
 
@@ -148,6 +177,7 @@ export const useLeaderboard = () => {
     const response = await groupApi.joinGroup(code)
     console.timeEnd("Join Group")
     if (!response.success || !response.data) {
+      track("error_occurred", { error_type: "load_groups_failed", error_message: response.error })
       throw new Error(response.error || "Failed to join group")
     }
 
@@ -155,7 +185,10 @@ export const useLeaderboard = () => {
     groupStorage.storeGroupCode(response.data.id, response.data.code, response.data.name)
     console.log("Stored group code for joined group:", response.data.id)
 
-    await loadGroups() // Refresh groups list
+    // Track group join
+    track("group_joined", { has_description: !!response.data.description })
+
+    await loadGroups()
     return response.data
   }
 
@@ -164,10 +197,14 @@ export const useLeaderboard = () => {
     const response = await gameApi.createGame(groupId, name)
     console.timeEnd("Create Game")
     if (!response.success || !response.data) {
+      track("error_occurred", { error_type: "load_groups_failed", error_message: response.error })
       throw new Error(response.error || "Failed to create game")
     }
 
-    await loadGamesForGroup(groupId) // Refresh games list
+    // Track game creation
+    track("game_created", { game_name_length: response.data.name.length, has_group: !!response.data.group_id })
+
+    await loadGamesForGroup(groupId)
     return response.data
   }
 
@@ -182,10 +219,14 @@ export const useLeaderboard = () => {
     console.timeEnd("Add Playthrough")
 
     if (!response.success || !response.data) {
+      track("error_occurred", { error_type: "load_groups_failed", error_message: response.error })
       throw new Error(response.error || "Failed to create playthrough")
     }
 
     console.log("Playthrough created successfully:", response.data)
+
+    // Track playthrough addition
+    track("playthrough_added", { player_count: results.length, has_game: !!gameId })
 
     // Refresh both playthroughs and players
     await Promise.all([
@@ -203,14 +244,22 @@ export const useLeaderboard = () => {
       console.timeEnd("Delete Playthrough")
 
       if (!response.success) {
+        track("error_occurred", { error_type: "load_groups_failed", error_message: response.error })
         throw new Error(response.error || "Failed to delete playthrough")
       }
+
+      // Track playthrough deletion
+      track("playthrough_deleted")
 
       // Update local state to remove the deleted playthrough
       setPlaythroughs((prev) => prev.filter((p) => p.id !== playthroughId))
       return true
     } catch (error) {
       console.error("Failed to delete playthrough:", error)
+      track("error_occurred", {
+        error_type: "load_groups_failed",
+        error_message: error instanceof Error ? error.message : "Unknown error",
+      })
       return false
     }
   }

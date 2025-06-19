@@ -24,7 +24,9 @@ export default function LeaderboardPage() {
     loading,
     gameLoading,
     playthroughLoading,
+    seasonLoading,
     playthroughs,
+    currentSeasonSummary,
     currentLeaderboard,
     currentGroupOverview,
     currentGroupPlayers,
@@ -36,6 +38,9 @@ export default function LeaderboardPage() {
     setSelectedGroupId,
     setSelectedGameId,
     leaveGroup,
+    concludeSeason,
+    fetchSeasons,
+    fetchSeasonBadges,
   } = useLeaderboard()
 
   const [newGameName, setNewGameName] = useState("")
@@ -116,6 +121,15 @@ export default function LeaderboardPage() {
     }
   }
 
+  const handleConcludeSeason = async () => {
+    try {
+      await concludeSeason()
+      // Success message is handled in the component
+    } catch (e: any) {
+      throw e // Let the component handle the error
+    }
+  }
+
   const handleBackToGroup = () => {
     setSelectedGameId(null)
   }
@@ -156,10 +170,16 @@ export default function LeaderboardPage() {
           leaderboardData={currentLeaderboard}
           existingPlayers={currentGroupPlayers}
           playthroughs={currentGamePlaythroughs}
+          currentSeasonSummary={currentSeasonSummary}
           onAddPlaythrough={handleAddPlaythrough}
           onDeletePlaythrough={handleDeletePlaythrough}
+          onConcludeSeason={handleConcludeSeason}
+          onFetchSeasons={fetchSeasons}
+          onFetchSeasonBadges={fetchSeasonBadges}
           loading={loading}
           playthroughLoading={playthroughLoading}
+          seasonLoading={seasonLoading}
+          groupId={selectedGroupId || undefined}
         />
       </div>
     )

@@ -10,7 +10,8 @@ import type {
   GameLeaderboard,
   GroupOverview,
 } from "@/types/leaderboard"
-import { groupApi, gameApi, playerApi, playthroughApi } from "@/lib/api"
+import type { SeasonSummary } from "@/types/seasons"
+import { groupApi, gameApi, playerApi, playthroughApi, seasonApi } from "@/lib/api"
 import { groupStorage } from "@/lib/group-storage"
 import { track } from "@vercel/analytics/react"
 
@@ -21,9 +22,11 @@ export const useLeaderboard = () => {
   const [games, setGames] = useState<Game[]>([])
   const [players, setPlayers] = useState<Player[]>([])
   const [playthroughs, setPlaythroughs] = useState<Playthrough[]>([])
+  const [currentSeasonSummary, setCurrentSeasonSummary] = useState<SeasonSummary | null>(null)
   const [loading, setLoading] = useState(false)
   const [gameLoading, setGameLoading] = useState(false)
   const [playthroughLoading, setPlaythroughLoading] = useState(false)
+  const [seasonLoading, setSeasonLoading] = useState(false)
 
   // Track page visit on mount
   useEffect(() => {
@@ -35,15 +38,17 @@ export const useLeaderboard = () => {
     loadGroups()
   }, [])
 
-  // Load games and players when group is selected
+  // Load games, players, and season data when group is selected
   useEffect(() => {
     if (selectedGroupId) {
       loadGamesForGroup(selectedGroupId)
       loadPlayersForGroup(selectedGroupId)
+      loadCurrentSeason(selectedGroupId)
     } else {
       setGames([])
       setPlayers([])
       setSelectedGameId(null)
+      setCurrentSeasonSummary(null)
     }
   }, [selectedGroupId])
 
@@ -95,12 +100,12 @@ export const useLeaderboard = () => {
         setGames(response.data)
       } else {
         console.error("Failed to load games:", response.error)
-        track("error_occurred", { error_type: "load_groups_failed", error_message: response.error })
+        track("error_occurred", { error_type: "load_games_failed", error_message: response.error })
       }
     } catch (error) {
       console.error("Failed to load games:", error)
       track("error_occurred", {
-        error_type: "load_groups_failed",
+        error_type: "load_games_failed",
         error_message: error instanceof Error ? error.message : "Unknown error",
       })
     } finally {
@@ -117,12 +122,12 @@ export const useLeaderboard = () => {
         setPlayers(response.data)
       } else {
         console.error("Failed to load players:", response.error)
-        track("error_occurred", { error_type: "load_groups_failed", error_message: response.error })
+        track("error_occurred", { error_type: "load_players_failed", error_message: response.error })
       }
     } catch (error) {
       console.error("Failed to load players:", error)
       track("error_occurred", {
-        error_type: "load_groups_failed",
+        error_type: "load_players_failed",
         error_message: error instanceof Error ? error.message : "Unknown error",
       })
     }
@@ -139,16 +144,39 @@ export const useLeaderboard = () => {
         setPlaythroughs(response.data)
       } else {
         console.error("Failed to load playthroughs:", response.error)
-        track("error_occurred", { error_type: "load_groups_failed", error_message: response.error })
+        track("error_occurred", { error_type: "load_playthroughs_failed", error_message: response.error })
       }
     } catch (error) {
       console.error("Failed to load playthroughs:", error)
       track("error_occurred", {
-        error_type: "load_groups_failed",
+        error_type: "load_playthroughs_failed",
         error_message: error instanceof Error ? error.message : "Unknown error",
       })
     } finally {
       setPlaythroughLoading(false)
+    }
+  }
+
+  const loadCurrentSeason = async (groupId: string) => {
+    setSeasonLoading(true)
+    try {
+      console.time("Load Current Season")
+      const response = await seasonApi.getCurrentSeason(groupId)
+      console.timeEnd("Load Current Season")
+      if (response.success && response.data) {
+        setCurrentSeasonSummary(response.data)
+      } else {
+        console.error("Failed to load current season:", response.error)
+        track("error_occurred", { error_type: "load_season_failed", error_message: response.error })
+      }
+    } catch (error) {
+      console.error("Failed to load current season:", error)
+      track("error_occurred", {
+        error_type: "load_season_failed",
+        error_message: error instanceof Error ? error.message : "Unknown error",
+      })
+    } finally {
+      setSeasonLoading(false)
     }
   }
 
@@ -157,7 +185,7 @@ export const useLeaderboard = () => {
     const response = await groupApi.createGroup(name, description)
     console.timeEnd("Create Group")
     if (!response.success || !response.data) {
-      track("error_occurred", { error_type: "load_groups_failed", error_message: response.error })
+      track("error_occurred", { error_type: "create_group_failed", error_message: response.error })
       throw new Error(response.error || "Failed to create group")
     }
 
@@ -177,7 +205,7 @@ export const useLeaderboard = () => {
     const response = await groupApi.joinGroup(code)
     console.timeEnd("Join Group")
     if (!response.success || !response.data) {
-      track("error_occurred", { error_type: "load_groups_failed", error_message: response.error })
+      track("error_occurred", { error_type: "join_group_failed", error_message: response.error })
       throw new Error(response.error || "Failed to join group")
     }
 
@@ -197,7 +225,7 @@ export const useLeaderboard = () => {
     const response = await gameApi.createGame(groupId, name)
     console.timeEnd("Create Game")
     if (!response.success || !response.data) {
-      track("error_occurred", { error_type: "load_groups_failed", error_message: response.error })
+      track("error_occurred", { error_type: "create_game_failed", error_message: response.error })
       throw new Error(response.error || "Failed to create game")
     }
 
@@ -219,7 +247,7 @@ export const useLeaderboard = () => {
     console.timeEnd("Add Playthrough")
 
     if (!response.success || !response.data) {
-      track("error_occurred", { error_type: "load_groups_failed", error_message: response.error })
+      track("error_occurred", { error_type: "add_playthrough_failed", error_message: response.error })
       throw new Error(response.error || "Failed to create playthrough")
     }
 
@@ -228,10 +256,11 @@ export const useLeaderboard = () => {
     // Track playthrough addition
     track("playthrough_added", { player_count: results.length, has_game: !!gameId })
 
-    // Refresh both playthroughs and players
+    // Refresh playthroughs, players, and season data
     await Promise.all([
       loadPlaythroughsForGame(gameId),
       selectedGroupId ? loadPlayersForGroup(selectedGroupId) : Promise.resolve(),
+      selectedGroupId ? loadCurrentSeason(selectedGroupId) : Promise.resolve(),
     ])
 
     return response.data
@@ -244,24 +273,65 @@ export const useLeaderboard = () => {
       console.timeEnd("Delete Playthrough")
 
       if (!response.success) {
-        track("error_occurred", { error_type: "load_groups_failed", error_message: response.error })
+        track("error_occurred", { error_type: "delete_playthrough_failed", error_message: response.error })
         throw new Error(response.error || "Failed to delete playthrough")
       }
 
       // Track playthrough deletion
       track("playthrough_deleted")
 
-      // Update local state to remove the deleted playthrough
+      // Update local state and refresh season data
       setPlaythroughs((prev) => prev.filter((p) => p.id !== playthroughId))
+      if (selectedGroupId) {
+        loadCurrentSeason(selectedGroupId)
+      }
       return true
     } catch (error) {
       console.error("Failed to delete playthrough:", error)
       track("error_occurred", {
-        error_type: "load_groups_failed",
+        error_type: "delete_playthrough_failed",
         error_message: error instanceof Error ? error.message : "Unknown error",
       })
       return false
     }
+  }
+
+  const concludeSeason = async (): Promise<void> => {
+    if (!selectedGroupId) throw new Error("No group selected")
+
+    console.time("Conclude Season")
+    const response = await seasonApi.concludeSeason(selectedGroupId)
+    console.timeEnd("Conclude Season")
+
+    if (!response.success) {
+      track("error_occurred", { error_type: "conclude_season_failed", error_message: response.error })
+      throw new Error(response.error || "Failed to conclude season")
+    }
+
+    // Track season conclusion
+    track("season_concluded", { season_number: response.data?.seasonNumber })
+
+    // Refresh season data and playthroughs to get the new season
+    await Promise.all([
+      loadCurrentSeason(selectedGroupId),
+      selectedGameId ? loadPlaythroughsForGame(selectedGameId) : Promise.resolve(),
+    ])
+  }
+
+  const fetchSeasons = async (groupId: string): Promise<any[]> => {
+    const response = await seasonApi.getSeasons(groupId)
+    if (!response.success || !response.data) {
+      throw new Error(response.error || "Failed to fetch seasons")
+    }
+    return response.data
+  }
+
+  const fetchSeasonBadges = async (groupId: string, seasonId: string): Promise<any[]> => {
+    const response = await seasonApi.getSeasonBadges(groupId, seasonId)
+    if (!response.success || !response.data) {
+      throw new Error(response.error || "Failed to fetch season badges")
+    }
+    return response.data
   }
 
   const leaveGroup = (groupId: string) => {
@@ -285,7 +355,19 @@ export const useLeaderboard = () => {
       const game = games.find((g) => g.id === gameId)
       if (!game) return null
 
-      const gamePlaythroughs = playthroughs.filter((p) => p.game_id === gameId)
+      // Filter playthroughs by current season if available
+      let gamePlaythroughs = playthroughs.filter((p) => p.game_id === gameId)
+
+      // If we have current season data, only show playthroughs from current season
+      if (currentSeasonSummary?.season) {
+        gamePlaythroughs = gamePlaythroughs.filter((p) => p.season_id === currentSeasonSummary.season.id)
+        console.log(
+          "Filtered playthroughs for current season:",
+          currentSeasonSummary.season.season_number,
+          gamePlaythroughs,
+        )
+      }
+
       console.log("Game playthroughs for leaderboard:", gamePlaythroughs)
 
       const playerStats: Record<
@@ -344,7 +426,7 @@ export const useLeaderboard = () => {
 
       return { game, rankings: rankedPlayers }
     },
-    [games, playthroughs],
+    [games, playthroughs, currentSeasonSummary],
   )
 
   const getGroupOverview = useCallback(
@@ -381,7 +463,9 @@ export const useLeaderboard = () => {
     loading,
     gameLoading,
     playthroughLoading,
+    seasonLoading,
     playthroughs,
+    currentSeasonSummary,
 
     // Computed
     currentLeaderboard,
@@ -397,5 +481,8 @@ export const useLeaderboard = () => {
     setSelectedGameId,
     deletePlaythrough,
     leaveGroup,
+    concludeSeason,
+    fetchSeasons,
+    fetchSeasonBadges,
   }
 }

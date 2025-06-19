@@ -167,3 +167,54 @@ export const playthroughApi = {
     }
   },
 }
+
+// New Season API functions
+export const seasonApi = {
+  async getCurrentSeason(groupId: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await fetch(`${API_BASE}/groups/${groupId}/seasons/current`)
+      const data = await response.json()
+      return data
+    } catch (error) {
+      console.error("API Error:", error)
+      return { success: false, error: "Network error" }
+    }
+  },
+
+  async getSeasons(groupId: string): Promise<ApiResponse<any[]>> {
+    try {
+      const response = await fetch(`${API_BASE}/groups/${groupId}/seasons`)
+      const data = await response.json()
+      return data
+    } catch (error) {
+      console.error("API Error:", error)
+      return { success: false, error: "Network error" }
+    }
+  },
+
+  async concludeSeason(groupId: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await fetch(`${API_BASE}/groups/${groupId}/seasons/conclude`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      })
+
+      const data = await response.json()
+      return data
+    } catch (error) {
+      console.error("API Error:", error)
+      return { success: false, error: "Network error" }
+    }
+  },
+
+  async getSeasonBadges(groupId: string, seasonId: string): Promise<ApiResponse<any[]>> {
+    try {
+      const response = await fetch(`${API_BASE}/groups/${groupId}/seasons/${seasonId}/badges`)
+      const data = await response.json()
+      return data
+    } catch (error) {
+      console.error("API Error:", error)
+      return { success: false, error: "Network error" }
+    }
+  },
+}

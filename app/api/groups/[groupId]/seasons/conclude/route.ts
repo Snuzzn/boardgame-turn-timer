@@ -111,8 +111,8 @@ export async function POST(request: NextRequest, { params }: { params: { groupId
     // Create new season
     const [newSeason] = await sql`
       INSERT INTO seasons (group_id, season_number, status, min_games_threshold)
-      VALUES (
-        ${groupId}, 
+      VALUES (${groupId},
+              ${currentSeason.game_id},
         ${currentSeason.season_number + 1}, 
         'active',
         ${currentSeason.min_games_threshold}

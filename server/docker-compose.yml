@@ -1,0 +1,7 @@
+services:
+  socket:
+    build: .
+    container_name: turn-timer-socket-server
+    env_file: .env
+    ports:
+      - "3001:3001"

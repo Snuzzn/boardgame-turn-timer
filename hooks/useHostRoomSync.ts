@@ -42,6 +42,7 @@ export function useHostRoomSync({
 
     // Get or generate the room code
     const [roomCode, setRoomCode] = useLocalStorage<string | null>("roomCode", null)
+
     useEffect(() => {
         if (roomCode) return
         if (typeof window === "undefined") return
@@ -89,7 +90,7 @@ export function useHostRoomSync({
     useEffect(() => {
         if (!connected) return
         emit("host:state", { roomCode, snapshot: buildSnapshot() })
-    }, [connected, emit, roomCode, syncSignal, buildSnapshot])
+    }, [connected, emit, roomCode, syncSignal])
 
     // Respond to controller late-join / refresh
     useEffect(() => {

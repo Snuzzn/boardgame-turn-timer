@@ -516,6 +516,18 @@ export const useGameTimer = () => {
         triggerSync()
     }
 
+    /** Toggle a non-active player's revealed/out-of-round state without affecting turn timing. */
+    const markPlayerRevealed = (playerId: number) => {
+        setPlayers((prev) =>
+            prev.map((player) =>
+                player.id === playerId && !player.isActive
+                    ? { ...player, isOutOfRound: !player.isOutOfRound, isRevealing: false }
+                    : player,
+            ),
+        )
+        triggerSync()
+    }
+
     const endRound = () => {
         sounds.playRoundEnd()
 
@@ -763,6 +775,7 @@ export const useGameTimer = () => {
         nextTurn,
         previousTurn,
         startRevealTurn,
+        markPlayerRevealed,
         endRound,
         resetGame,
         adjustPlayerTime,

@@ -26,6 +26,7 @@ type UseHostRoomSyncProps = {
     onNextTurn: () => void
     onPauseResume: () => void
     onRevealTurn: () => void
+    onMarkPlayerRevealed: (playerId: number) => void
 }
 
 const makeRoomCode = () =>
@@ -37,6 +38,7 @@ export function useHostRoomSync({
     onNextTurn,
     onPauseResume,
     onRevealTurn,
+    onMarkPlayerRevealed,
 }: UseHostRoomSyncProps) {
     const { connected, emit, on, off, socket } = useSocket()
 
@@ -107,16 +109,23 @@ export function useHostRoomSync({
     useEffect(() => {
         if (!connected) return
 
+        const handleMarkPlayerRevealed = (payload?: { playerId?: number }) => {
+            if (typeof payload?.playerId !== "number") return
+            onMarkPlayerRevealed(payload.playerId)
+        }
+
         on("game:nextTurn", onNextTurn)
         on("game:pauseResume", onPauseResume)
         on("game:revealTurn", onRevealTurn)
+        on("game:markPlayerRevealed", handleMarkPlayerRevealed)
 
         return () => {
             off("game:nextTurn", onNextTurn)
             off("game:pauseResume", onPauseResume)
             off("game:revealTurn", onRevealTurn)
+            off("game:markPlayerRevealed", handleMarkPlayerRevealed)
         }
-    }, [connected, on, off, onNextTurn, onPauseResume, onRevealTurn])
+    }, [connected, on, off, onNextTurn, onPauseResume, onRevealTurn, onMarkPlayerRevealed])
 
     return {
         roomCode,

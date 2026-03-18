@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { Play, Clock, Plus, GripVertical, AlertTriangle, Edit2, Minus } from "lucide-react"
+import { Play, Clock, Plus, GripVertical, AlertTriangle, Edit2, Minus, GalleryHorizontalEnd } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -97,6 +97,7 @@ interface PlayerCardProps {
     onUpdateColor: (playerId: number, newColor: string) => void
     onStartEdit: (playerId: number, currentName: string) => void
     onSetEditName: (name: string) => void
+    onMarkRevealed?: (playerId: number) => void
 }
 
 const getPlayerColorStyles = (color: string) => {
@@ -123,6 +124,7 @@ export const PlayerCard = ({
     onUpdateColor,
     onStartEdit,
     onSetEditName,
+    onMarkRevealed,
 }: PlayerCardProps) => {
 
     const colors = getPlayerColorStyles(player.color)
@@ -201,7 +203,7 @@ export const PlayerCard = ({
                             </div>
                         )}
                     </div>
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap justify-end">
                         {player.isOutOfRound && <Badge className="bg-gray-500 text-white text-xs">Round Complete</Badge>}
                         {player.isRevealing && <Badge className="bg-purple-500 text-white text-xs">Revealing</Badge>}
                         {isActive && isOvertime && (
@@ -215,6 +217,20 @@ export const PlayerCard = ({
                                 <Play className="w-3 h-3 mr-1" />
                                 Active
                             </Badge>
+                        )}
+                        {gameStarted && !isActive && onMarkRevealed && (
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={(e) => {
+                                    e.stopPropagation()
+                                    onMarkRevealed(player.id)
+                                }}
+                                className="h-8 w-8 p-0 text-gray-500 hover:text-purple-600 hover:bg-purple-100 touch-manipulation shrink-0"
+                                title={player.isOutOfRound ? "Undo revealed" : "Mark as revealed"}
+                            >
+                                <GalleryHorizontalEnd className="w-4 h-4" />
+                            </Button>
                         )}
                     </div>
                 </div>

@@ -122,6 +122,21 @@ io.on("connection", (socket) => {
         socket.to(roomCode).emit("game:revealTurn");
     });
 
+    socket.on("game:markPlayerRevealed", (payload) => {
+        const roomCode = socket.data.roomCode;
+        if (!roomCode) return;
+        if (typeof payload?.playerId !== "number") return;
+
+        log.info(
+            { roomCode, from: socket.id, playerId: payload.playerId },
+            "Mark player revealed"
+        );
+
+        socket.to(roomCode).emit("game:markPlayerRevealed", {
+            playerId: payload.playerId,
+        });
+    });
+
     socket.on("disconnect", (reason) => {
         log.info(
             {

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Pause, Play } from "lucide-react"
+import { GalleryHorizontalEnd, Pause, Play } from "lucide-react"
 import { useSocket } from "@/hooks/useSocket"
 import { formatTime } from "@/utils"
 import { HostState } from "@/types"
@@ -209,6 +209,23 @@ export default function Controller() {
                                             <span className="text-xs font-semibold text-green-700">
                                                 ACTIVE
                                             </span>
+                                        )}
+                                        {hostState?.gameStarted && !p.isActive && (
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="h-7 w-7 p-0 text-gray-500 hover:text-purple-600 hover:bg-purple-100"
+                                                title={p.isOutOfRound ? "Undo revealed" : "Mark as revealed"}
+                                                onClick={() =>
+                                                    throttledEmit(
+                                                        "game:markPlayerRevealed",
+                                                        { roomCode, playerId: p.id },
+                                                        400
+                                                    )
+                                                }
+                                            >
+                                                <GalleryHorizontalEnd className="w-3.5 h-3.5" />
+                                            </Button>
                                         )}
                                     </div>
                                 </div>

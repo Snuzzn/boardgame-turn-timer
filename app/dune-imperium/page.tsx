@@ -47,6 +47,7 @@ export default function DuneImperiumTimer() {
         nextTurn,
         previousTurn,
         startRevealTurn,
+        markPlayerRevealed,
         endRound,
         resetGame,
         adjustPlayerTime,
@@ -80,6 +81,7 @@ export default function DuneImperiumTimer() {
         onNextTurn: nextTurn,
         onPauseResume: startPauseTimer,
         onRevealTurn: startRevealTurn,
+        onMarkPlayerRevealed: markPlayerRevealed,
     })
 
     const isLandscape = useOrientation()
@@ -290,6 +292,7 @@ export default function DuneImperiumTimer() {
                                                     onUpdateColor={updatePlayerColor}
                                                     onStartEdit={handleStartEdit}
                                                     onSetEditName={setEditName}
+                                                    onMarkRevealed={markPlayerRevealed}
                                                 />
                                             </div>
                                         </div>
@@ -355,6 +358,7 @@ export default function DuneImperiumTimer() {
                                     onUpdateColor={updatePlayerColor}
                                     onStartEdit={handleStartEdit}
                                     onSetEditName={setEditName}
+                                    onMarkRevealed={markPlayerRevealed}
                                 />
                             </div>
                         ))}

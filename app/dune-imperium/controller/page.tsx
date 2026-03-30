@@ -17,7 +17,7 @@ export default function Controller() {
     const searchParams = useSearchParams()
     const roomCode = searchParams.get("roomCode")
 
-    const { connected, emit, emitWithAck, on, off, socket } = useSocket()
+    const { connected, isConnecting, emit, emitWithAck, on, off, socket } = useSocket()
     const lastJoinedSocketId = useRef<string | null>(null)
 
     const throttledEmit = useThrottledEmit(emit)
@@ -104,7 +104,7 @@ export default function Controller() {
 
     return (
         <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-amber-50 via-orange-50 to-red-50">
-            {<ConnectingModal open={!connected} />}
+            <ConnectingModal open={isConnecting} />
             <div className="w-full py-2 max-w-md rounded-3xl border border-amber-200/70 bg-white/80 backdrop-blur-xl shadow-[0_12px_40px_rgba(0,0,0,0.08)] overflow-hidden">
                 <div className="p-4">
                     {/* Header */}

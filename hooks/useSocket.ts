@@ -8,7 +8,13 @@ export function getSocket() {
     if (!socket) {
         socket = io(process.env.NEXT_PUBLIC_WS_SERVER_URL, {
             transports: ["websocket"],
-            withCredentials: true
+            withCredentials: true,
+            // Make resume-from-sleep feel snappy by reducing Socket.IO's
+            // reconnect backoff (default can be up to ~5s).
+            reconnection: true,
+            reconnectionDelay: 250,
+            reconnectionDelayMax: 1000,
+            randomizationFactor: 0
         })
     }
     return socket
@@ -19,6 +25,7 @@ export function getSocket() {
 export function useSocket() {
     const [socket, setSocket] = useState<Socket | null>(null)
     const [connected, setConnected] = useState(false)
+    const [isConnecting, setIsConnecting] = useState(false)
 
     // always points to the latest socket instance
     const socketRef = useRef<Socket | null>(null)
@@ -33,13 +40,25 @@ export function useSocket() {
 
         // initialise connected state (in case socket is already connected)
         setConnected(s.connected)
+        setIsConnecting(!s.connected)
+
+        const onReconnectAttempt = () => setIsConnecting(true)
+        const onReconnectFailed = () => setIsConnecting(false)
 
         s.on("connect", onConnect)
         s.on("disconnect", onDisconnect)
 
+        // Reconnecting events live on the underlying Manager.
+        // This lets us show the "Connecting..." modal only when a
+        // reconnect attempt actually starts (not immediately on disconnect).
+        s.io.on("reconnect_attempt", onReconnectAttempt)
+        s.io.on("reconnect_failed", onReconnectFailed)
+
         return () => {
             s.off("connect", onConnect)
             s.off("disconnect", onDisconnect)
+            s.io.off("reconnect_attempt", onReconnectAttempt)
+            s.io.off("reconnect_failed", onReconnectFailed)
             // don't disconnect
         }
     }, [])
@@ -73,6 +92,6 @@ export function useSocket() {
         socketRef.current?.off(event, handler)
     }, [])
 
-    return { socket, connected, emit, emitWithAck, on, off }
+    return { socket, connected, isConnecting, emit, emitWithAck, on, off }
 }
 

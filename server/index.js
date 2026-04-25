@@ -10,7 +10,40 @@ const log = pino({
         : undefined,
 });
 
-const server = http.createServer();
+const server = http.createServer((req, res) => {
+    const method = req.method || "GET";
+    const url = req.url || "/";
+    const path = url.split("?")[0];
+
+    // Basic liveness/readiness endpoint for container orchestrators.
+    if (
+        (method === "GET" || method === "HEAD") &&
+        (path === "/healthz" || path === "/health" || path === "/readyz" || path === "/livez")
+    ) {
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "application/json; charset=utf-8");
+        res.setHeader("Cache-Control", "no-store");
+
+        if (method === "HEAD") {
+            res.end();
+            return;
+        }
+
+        res.end(
+            JSON.stringify({
+                ok: true,
+                service: "socket",
+                uptimeSeconds: Math.floor(process.uptime()),
+                timestamp: new Date().toISOString(),
+            })
+        );
+        return;
+    }
+
+    res.statusCode = 404;
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.end("Not Found");
+});
 
 
 const allowedOrigins =
